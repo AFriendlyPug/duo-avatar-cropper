@@ -134,6 +134,9 @@ aside { display: grid; gap: 1rem; }
 .side { display: flex; justify-content: center; margin-top: 0.75rem; }
 .side canvas { width: 96px; height: 96px; border-radius: 50%; background: var(--line); border: 4px solid var(--surface); }
 .side canvas + canvas { margin-left: -14px; }
+.together .copy { display: flex; flex-wrap: wrap; align-items: center; gap: 0.5rem 0.75rem; margin-top: 0.9rem; }
+.together .copy button { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
+.together .copy .status { margin: 0; }
 
 .export { display: grid; gap: 0.6rem; }
 .export .opts { display: flex; align-items: center; gap: 0.5rem; color: var(--muted); font-size: 0.9rem; }
@@ -214,6 +217,10 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
         <div class="side"><canvas id="sideA" width="192" height="192"></canvas><canvas id="sideB" width="192" height="192"></canvas></div>
         <div class="row"><canvas id="rowA" width="96" height="96"></canvas><div><div class="name">You</div><div class="msg">matching pfps?</div></div></div>
         <div class="row"><canvas id="rowB" width="96" height="96"></canvas><div><div class="name">Your friend</div><div class="msg">obviously</div></div></div>
+        <div class="copy">
+          <button type="button" id="copyPreview" disabled>Copy preview image</button>
+          <p class="status" id="copyStatus" role="status"></p>
+        </div>
       </div>
 
       <div class="card export">
@@ -629,6 +636,7 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     });
     const both = !!imgOf(0) && !!imgOf(1);
     document.getElementById('dlBoth').disabled = !both || typeof JSZip === 'undefined';
+    document.getElementById('copyPreview').disabled = !both;
   }
 
   document.getElementById('openBtn').addEventListener('click', () => fileShared.click());
@@ -689,6 +697,60 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
       await downloads.save({ filename: 'matching-avatars.zip', data: blob });
       setStatus('Downloaded both avatars.');
     } catch (err) { setStatus(errorText(err)); }
+  });
+
+  // Side by side preview image for sharing
+  const copyBtn = document.getElementById('copyPreview');
+  const copyStatus = document.getElementById('copyStatus');
+
+  function previewBlob() {
+    return new Promise((resolve, reject) => {
+      const D = 256, OVERLAP = 40, PAD = 32, RING = 8;
+      const cv = document.createElement('canvas');
+      cv.width = PAD * 2 + D * 2 - OVERLAP;
+      cv.height = PAD * 2 + D;
+      const t = cv.getContext('2d');
+      const bg = '#2B2D31';
+      t.fillStyle = bg;
+      t.fillRect(0, 0, cv.width, cv.height);
+      [0, 1].forEach(i => {
+        const tmp = document.createElement('canvas');
+        tmp.width = D; tmp.height = D;
+        paintCrop(i, tmp);
+        const x = PAD + i * (D - OVERLAP), y = PAD;
+        const cx = x + D / 2, cy = y + D / 2;
+        if (i === 1) {
+          t.fillStyle = bg;
+          t.beginPath(); t.arc(cx, cy, D / 2 + RING, 0, Math.PI * 2); t.fill();
+        }
+        t.save();
+        t.beginPath(); t.arc(cx, cy, D / 2, 0, Math.PI * 2); t.clip();
+        t.drawImage(tmp, x, y);
+        t.restore();
+      });
+      cv.toBlob(b => b ? resolve(b) : reject(new Error('The preview could not be created.')), 'image/png');
+    });
+  }
+
+  function savePreviewFile() {
+    return previewBlob().then(b => downloads.save({ filename: 'matching-avatars-preview.png', data: b }));
+  }
+
+  copyBtn.addEventListener('click', async () => {
+    const canClip = window.isSecureContext && navigator.clipboard && navigator.clipboard.write && window.ClipboardItem;
+    if (!canClip) {
+      try { await savePreviewFile(); copyStatus.textContent = 'This browser cannot copy images, so the preview was downloaded instead.'; }
+      catch (e) { copyStatus.textContent = e.message; }
+      return;
+    }
+    try {
+      // Passing a promise keeps Safari happy: the clipboard write starts inside the click.
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': previewBlob() })]);
+      copyStatus.textContent = 'Copied. Paste it into a chat to share.';
+    } catch (e) {
+      try { await savePreviewFile(); copyStatus.textContent = 'Copying was blocked, so the preview was downloaded instead.'; }
+      catch (e2) { copyStatus.textContent = e2.message; }
+    }
   });
 
   // Resize and theme changes
