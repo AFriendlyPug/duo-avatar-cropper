@@ -144,6 +144,8 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
 .status { font-size: 0.85rem; color: var(--muted); min-height: 1.3em; margin: 0; }
 .keys { font-size: 0.85rem; color: var(--muted); margin-top: 1.25rem; max-width: 70ch; }
 .keys kbd { font-family: inherit; font-size: 0.8rem; border: 1px solid var(--line); background: var(--surface); border-radius: 5px; padding: 0 0.35rem; }
+.disclaimer { margin-top: 2.5rem; padding-top: 1rem; border-top: 1.5px solid var(--line); font-size: 0.85rem; color: var(--muted); text-align: center; }
+.disclaimer p { margin: 0; }
 @media (prefers-reduced-motion: no-preference) {
   .card { transition: border-color .15s, box-shadow .15s; }
 }
@@ -237,6 +239,10 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
       </div>
     </aside>
   </div>
+
+  <footer class="disclaimer">
+    <p>Built with AI assistance (Claude by Anthropic) and may contain mistakes. Everything runs in your browser, and no images are uploaded.</p>
+  </footer>
 </div>
 
 <script>
