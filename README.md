@@ -8,6 +8,7 @@ Crop one image into two matching square profile pictures for Discord. Runs entir
 - Dashed circle guide showing Discord's circular mask
 - Live previews at profile and chat size, plus a side by side view
 - Optional "keep both the same size" link and per-avatar mirroring
+- Rotation for each avatar with a slider, 90° steps, a drag handle on the crop or the <kbd>[</kbd> and <kbd>]</kbd> keys, either independent, linked (same angle) or linked opposite (mirror image angles, handy for pairs that lean towards each other)
 - PNG export at 256, 512 or 1024 px, individually or both as a .zip
 - Drag and drop, paste from clipboard, keyboard nudging
 

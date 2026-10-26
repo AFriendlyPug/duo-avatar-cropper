@@ -122,6 +122,14 @@ aside { display: grid; gap: 1rem; }
 .pv-lg { width: 128px; height: 128px; }
 .pv-sm { width: 40px; height: 40px; }
 .size-note { font-size: 0.8rem; color: var(--muted); }
+.rot { margin-bottom: 0.9rem; }
+.rot-head { display: flex; justify-content: space-between; align-items: baseline; font-size: 0.9rem; color: var(--muted); }
+.rot-head output { font-variant-numeric: tabular-nums; color: var(--ink); font-weight: 600; }
+.rot input[type="range"] { width: 100%; margin: 0.3rem 0 0.45rem; accent-color: var(--c); }
+.rot-btns { display: flex; flex-wrap: wrap; gap: 0.4rem; }
+.rot-btns button { font-size: 0.8rem; padding: 0.3rem 0.65rem; }
+.links { display: flex; flex-wrap: wrap; gap: 0.5rem 1.25rem; align-items: center; }
+label.inline { display: inline-flex; align-items: center; gap: 0.45rem; color: var(--ink); }
 .card .actions { display: flex; flex-wrap: wrap; gap: 0.5rem; }
 .card .actions button { font-size: 0.85rem; padding: 0.4rem 0.75rem; }
 
@@ -173,16 +181,25 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
           <button type="button" id="emptyBtn">Choose image</button>
           <p class="hint">Wide images work best: each crop starts on one half.</p>
         </div>
-        <canvas id="stageCanvas" tabindex="0" aria-label="Image with two square crops. Drag a square to move it, drag a corner to resize it." hidden></canvas>
+        <canvas id="stageCanvas" tabindex="0" aria-label="Image with two square crops. Drag a square to move it, drag a corner to resize it, drag the round handle to rotate it." hidden></canvas>
       </div>
       <div class="stagebar">
         <div class="tabs" role="group" aria-label="Crop being edited">
           <button type="button" data-i="0" aria-pressed="true">Avatar 1</button>
           <button type="button" data-i="1" aria-pressed="false">Avatar 2</button>
         </div>
-        <label class="check"><input type="checkbox" id="linkSize"> Keep both crops the same size</label>
+        <div class="links">
+          <label class="check"><input type="checkbox" id="linkSize"> Keep both crops the same size</label>
+          <label class="inline" for="linkRot">Rotation
+            <select id="linkRot">
+              <option value="independent" selected>Independent</option>
+              <option value="linked">Linked</option>
+              <option value="opposite">Linked, opposite</option>
+            </select>
+          </label>
+        </div>
       </div>
-      <p class="keys">Drag inside a square to move it and drag a corner to resize. With the image selected, <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> nudge the active crop (hold <kbd>Shift</kbd> for bigger steps), <kbd>+</kbd> and <kbd>−</kbd> resize it, and <kbd>Tab</kbd> on the buttons above switches crops.</p>
+      <p class="keys">Drag inside a square to move it, drag a corner to resize and drag the round handle near its top edge to rotate (hold <kbd>Shift</kbd> to snap to 15°). With the image selected, <kbd>←</kbd> <kbd>→</kbd> <kbd>↑</kbd> <kbd>↓</kbd> nudge the active crop (hold <kbd>Shift</kbd> for bigger steps), <kbd>+</kbd> and <kbd>−</kbd> resize it, <kbd>[</kbd> and <kbd>]</kbd> rotate it by 1° (15° with <kbd>Shift</kbd>), and <kbd>Tab</kbd> on the buttons above switches crops.</p>
     </section>
 
     <aside>
@@ -191,6 +208,15 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
         <div class="previews" data-pick title="Edit this crop">
           <canvas class="pv-lg" width="256" height="256"></canvas>
           <div><canvas class="pv-sm" width="80" height="80"></canvas><div class="size-note">Chat size</div></div>
+        </div>
+        <div class="rot">
+          <div class="rot-head"><label for="rot0">Rotate</label><output for="rot0" data-rot-out>0°</output></div>
+          <input type="range" id="rot0" min="-180" max="180" step="1" value="0" data-rot>
+          <div class="rot-btns">
+            <button type="button" data-rot-step="-90" aria-label="Rotate avatar 1 90 degrees anticlockwise">↺ 90°</button>
+            <button type="button" data-rot-step="90" aria-label="Rotate avatar 1 90 degrees clockwise">↻ 90°</button>
+            <button type="button" data-rot-reset>Straighten</button>
+          </div>
         </div>
         <div class="actions">
           <button type="button" data-flip aria-pressed="false">Mirror</button>
@@ -205,6 +231,15 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
         <div class="previews" data-pick title="Edit this crop">
           <canvas class="pv-lg" width="256" height="256"></canvas>
           <div><canvas class="pv-sm" width="80" height="80"></canvas><div class="size-note">Chat size</div></div>
+        </div>
+        <div class="rot">
+          <div class="rot-head"><label for="rot1">Rotate</label><output for="rot1" data-rot-out>0°</output></div>
+          <input type="range" id="rot1" min="-180" max="180" step="1" value="0" data-rot>
+          <div class="rot-btns">
+            <button type="button" data-rot-step="-90" aria-label="Rotate avatar 2 90 degrees anticlockwise">↺ 90°</button>
+            <button type="button" data-rot-step="90" aria-label="Rotate avatar 2 90 degrees clockwise">↻ 90°</button>
+            <button type="button" data-rot-reset>Straighten</button>
+          </div>
         </div>
         <div class="actions">
           <button type="button" data-flip aria-pressed="false">Mirror</button>
@@ -249,6 +284,9 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
 (function () {
   const MIN = 16;
   const HANDLE = 10; // css px
+  const KNOB = 7; // css px, radius of the rotate handle
+  const KNOB_INSET = 20; // css px from the top edge of the crop
+  const RAD = Math.PI / 180;
   const canvas = document.getElementById('stageCanvas');
   const ctx = canvas.getContext('2d');
   const stage = document.getElementById('stage');
@@ -257,14 +295,18 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
   const fileShared = document.getElementById('fileShared');
   const fileOwn = document.getElementById('fileOwn');
   const linkSize = document.getElementById('linkSize');
+  const linkRot = document.getElementById('linkRot');
   const outSize = document.getElementById('outSize');
   const cards = [...document.querySelectorAll('.card[data-i]')];
   const tabs = [...document.querySelectorAll('.tabs button')];
 
   let shared = null; // {img, name}
   const crops = [
-    { own: null, x: 0, y: 0, s: 0, flip: false },
-    { own: null, x: 0, y: 0, s: 0, flip: false }
+    // cx, cy: centre in image pixels. s: current side. base: side the user last chose,
+    // restored when rotation changes so turning and turning back does not shrink the crop.
+    // rot: clockwise rotation of the finished avatar, in degrees.
+    { own: null, cx: 0, cy: 0, s: 0, base: 0, rot: 0, flip: false },
+    { own: null, cx: 0, cy: 0, s: 0, base: 0, rot: 0, flip: false }
   ];
   let active = 0;
   let scale = 1;
@@ -284,6 +326,22 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
 
   const imgOf = i => (crops[i].own || shared);
   const sameImage = () => imgOf(0) && imgOf(0) === imgOf(1);
+
+  // Rotation geometry. The avatar is rotated clockwise by rot, so the crop frame sits on the
+  // source image rotated the other way (or the same way when mirrored, because the mirror
+  // is applied to the source before the rotation).
+  function frameAngle(c) { return (c.flip ? 1 : -1) * c.rot * RAD; }
+  function fitFactor(c) { const a = frameAngle(c); return Math.abs(Math.cos(a)) + Math.abs(Math.sin(a)); }
+  function normDeg(d) { return ((d + 180) % 360 + 360) % 360 - 180; }
+  function toWorld(c, lx, ly) {
+    const a = frameAngle(c), co = Math.cos(a), si = Math.sin(a);
+    return [c.cx + lx * co - ly * si, c.cy + lx * si + ly * co];
+  }
+  function toLocal(c, p) {
+    const a = frameAngle(c), co = Math.cos(a), si = Math.sin(a);
+    const dx = p.x - c.cx, dy = p.y - c.cy;
+    return { x: dx * co + dy * si, y: -dx * si + dy * co };
+  }
 
   function css(name) { return getComputedStyle(document.documentElement).getPropertyValue(name).trim(); }
   function setStatus(t) { statusEl.textContent = t; }
@@ -312,9 +370,9 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     }
     which.forEach(i => {
       const c = crops[i];
-      c.s = Math.max(MIN, Math.round(s));
-      c.x = centres[i][0] - c.s / 2;
-      c.y = centres[i][1] - c.s / 2;
+      c.s = c.base = Math.max(MIN, Math.round(s));
+      c.cx = centres[i][0];
+      c.cy = centres[i][1];
       clamp(i);
     });
   }
@@ -323,17 +381,43 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     const img = imgOf(i).img;
     const w = img.naturalWidth, h = img.naturalHeight;
     const c = crops[i];
-    c.s = Math.round(Math.min(w, h) * 0.9);
-    c.x = (w - c.s) / 2; c.y = (h - c.s) / 2;
+    c.s = c.base = Math.round(Math.min(w, h) * 0.9);
+    c.cx = w / 2; c.cy = h / 2;
+    clamp(i);
   }
 
   function clamp(i) {
     const src = imgOf(i); if (!src) return;
     const w = src.img.naturalWidth, h = src.img.naturalHeight;
     const c = crops[i];
-    c.s = Math.max(MIN, Math.min(c.s, w, h));
-    c.x = Math.max(0, Math.min(c.x, w - c.s));
-    c.y = Math.max(0, Math.min(c.y, h - c.s));
+    // Keep the whole rotated square on the image so the avatar never has empty corners.
+    const f = fitFactor(c);
+    c.s = Math.max(MIN, Math.min(c.s, Math.min(w, h) / f));
+    const e = c.s * f / 2;
+    c.cx = Math.max(e, Math.min(c.cx, w - e));
+    c.cy = Math.max(e, Math.min(c.cy, h - e));
+  }
+
+  function setRotation(i, deg) {
+    const c = crops[i];
+    c.rot = normDeg(Math.round(deg));
+    c.s = c.base; clamp(i);
+    const mode = linkRot.value;
+    if (mode !== 'independent') {
+      const o = crops[1 - i];
+      o.rot = mode === 'linked' ? c.rot : normDeg(-c.rot);
+      o.s = o.base; clamp(1 - i);
+    }
+    updateRotUI();
+    draw();
+  }
+
+  function updateRotUI() {
+    cards.forEach((card, i) => {
+      const r = crops[i].rot;
+      card.querySelector('[data-rot]').value = String(r);
+      card.querySelector('[data-rot-out]').textContent = r + '°';
+    });
   }
 
   async function setShared(file) {
@@ -411,53 +495,80 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
       const order = shownIndices().sort((a, b) => (a === active) - (b === active));
       order.forEach(i => {
         const c = crops[i];
-        ctx.drawImage(img, c.x, c.y, c.s, c.s, c.x, c.y, c.s, c.s);
+        ctx.save();
+        ctx.translate(c.cx, c.cy);
+        ctx.rotate(frameAngle(c));
+        ctx.beginPath();
+        ctx.rect(-c.s / 2, -c.s / 2, c.s, c.s);
+        ctx.clip();
+        ctx.rotate(-frameAngle(c));
+        ctx.translate(-c.cx, -c.cy);
+        ctx.drawImage(img, 0, 0);
+        ctx.restore();
       });
       order.forEach(i => {
         const c = crops[i];
+        const h = c.s / 2;
         const col = css(i === 0 ? '--a' : '--b');
-        const lw = (i === active ? 3 : 2) / scale;
-        ctx.lineWidth = lw;
+        ctx.save();
+        ctx.translate(c.cx, c.cy);
+        ctx.rotate(frameAngle(c));
+        ctx.lineWidth = (i === active ? 3 : 2) / scale;
         ctx.strokeStyle = col;
         ctx.setLineDash([]);
         ctx.globalAlpha = i === active ? 1 : 0.75;
-        ctx.strokeRect(c.x, c.y, c.s, c.s);
+        ctx.strokeRect(-h, -h, c.s, c.s);
         ctx.globalAlpha = 1;
         if (i === active) {
           ctx.setLineDash([6 / scale, 5 / scale]);
           ctx.lineWidth = 1.5 / scale;
           ctx.strokeStyle = 'rgba(255,255,255,0.85)';
           ctx.beginPath();
-          ctx.arc(c.x + c.s / 2, c.y + c.s / 2, c.s / 2, 0, Math.PI * 2);
+          ctx.arc(0, 0, h, 0, Math.PI * 2);
           ctx.stroke();
           ctx.setLineDash([]);
           const hs = HANDLE / scale;
-          corners(c).forEach(([px, py]) => {
+          [[-h, -h], [h, -h], [-h, h], [h, h]].forEach(([px, py]) => {
             ctx.fillStyle = '#FFFFFF';
             ctx.fillRect(px - hs / 2, py - hs / 2, hs, hs);
             ctx.lineWidth = 2 / scale;
             ctx.strokeStyle = col;
             ctx.strokeRect(px - hs / 2, py - hs / 2, hs, hs);
           });
+          // Rotate handle, which also marks the top of the finished avatar
+          const ky = -h + KNOB_INSET / scale;
+          ctx.lineWidth = 2 / scale;
+          ctx.strokeStyle = col;
+          ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(0, ky - KNOB / scale); ctx.stroke();
+          ctx.beginPath(); ctx.arc(0, ky, KNOB / scale, 0, Math.PI * 2);
+          ctx.fillStyle = '#FFFFFF'; ctx.fill(); ctx.stroke();
         }
-        // number tag
+        // number tag, outside the top left corner when it fits on the image, otherwise inside
         const tag = 22 / scale;
+        const outside = [[-h, -h - tag], [-h + tag, -h - tag]].every(([lx, ly]) => {
+          const [tx, ty] = toWorld(c, lx, ly);
+          return tx >= 0 && ty >= 0 && tx <= img.naturalWidth && ty <= img.naturalHeight;
+        });
+        const top = outside ? -h - tag : -h;
         ctx.fillStyle = col;
         ctx.globalAlpha = i === active ? 1 : 0.75;
-        ctx.fillRect(c.x, c.y - tag < 0 ? c.y : c.y - tag, tag, tag);
+        ctx.fillRect(-h, top, tag, tag);
         ctx.globalAlpha = 1;
         ctx.fillStyle = '#FFFFFF';
         ctx.font = `700 ${14 / scale}px "Bricolage Grotesque", system-ui, sans-serif`;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.fillText(String(i + 1), c.x + tag / 2, (c.y - tag < 0 ? c.y : c.y - tag) + tag / 2);
+        ctx.fillText(String(i + 1), -h + tag / 2, top + tag / 2);
+        ctx.restore();
       });
     }
     renderPreviews();
   }
 
+  // Corners in image space: 0 top left, 1 top right, 2 bottom left, 3 bottom right (frame local)
   function corners(c) {
-    return [[c.x, c.y], [c.x + c.s, c.y], [c.x, c.y + c.s], [c.x + c.s, c.y + c.s]];
+    const h = c.s / 2;
+    return [[-h, -h], [h, -h], [-h, h], [h, h]].map(([x, y]) => toWorld(c, x, y));
   }
 
   function paintCrop(i, target) {
@@ -468,8 +579,13 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     if (!src) return;
     const c = crops[i];
     t.imageSmoothingQuality = 'high';
-    if (c.flip) { t.translate(target.width, 0); t.scale(-1, 1); }
-    t.drawImage(src.img, c.x, c.y, c.s, c.s, 0, 0, target.width, target.height);
+    const n = target.width;
+    t.translate(n / 2, n / 2);
+    t.rotate(c.rot * RAD);
+    if (c.flip) t.scale(-1, 1);
+    t.scale(n / c.s, n / c.s);
+    t.translate(-c.cx, -c.cy);
+    t.drawImage(src.img, 0, 0);
   }
 
   function renderPreviews() {
@@ -499,12 +615,19 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
   }
   function inside(i, p) {
     const c = crops[i];
-    return p.x >= c.x && p.x <= c.x + c.s && p.y >= c.y && p.y <= c.y + c.s;
+    const l = toLocal(c, p);
+    return Math.abs(l.x) <= c.s / 2 && Math.abs(l.y) <= c.s / 2;
+  }
+  function hitKnob(i, p) {
+    const c = crops[i];
+    const [kx, ky] = toWorld(c, 0, -c.s / 2 + KNOB_INSET / scale);
+    return Math.hypot(p.x - kx, p.y - ky) <= (KNOB + 6) / scale;
   }
 
   function hitTest(p) {
     const shown = shownIndices();
     if (shown.includes(active)) {
+      if (hitKnob(active, p)) return { i: active, mode: 'rotate' };
       const k = hitCorner(active, p);
       if (k >= 0) return { i: active, mode: 'resize', corner: k };
       if (inside(active, p)) return { i: active, mode: 'move' };
@@ -515,7 +638,11 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     return null;
   }
 
-  const cursorFor = { 0: 'nwse-resize', 1: 'nesw-resize', 2: 'nesw-resize', 3: 'nwse-resize' };
+  function cursorFor(i, k) {
+    const c = crops[i];
+    const [x, y] = corners(c)[k];
+    return (x - c.cx) * (y - c.cy) > 0 ? 'nwse-resize' : 'nesw-resize';
+  }
 
   canvas.addEventListener('pointerdown', e => {
     if (!stageSource()) return;
@@ -527,13 +654,15 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     if (hit.i !== active) setActive(hit.i, true);
     const c = crops[hit.i];
     if (hit.mode === 'move') {
-      drag = { mode: 'move', i: hit.i, dx: p.x - c.x, dy: p.y - c.y };
+      drag = { mode: 'move', i: hit.i, dx: p.x - c.cx, dy: p.y - c.cy };
+    } else if (hit.mode === 'rotate') {
+      drag = { mode: 'rotate', i: hit.i };
+      canvas.style.cursor = 'grabbing';
     } else {
       const k = hit.corner;
       const sx = (k === 1 || k === 3) ? 1 : -1;
       const sy = (k === 2 || k === 3) ? 1 : -1;
-      const ax = sx > 0 ? c.x : c.x + c.s;
-      const ay = sy > 0 ? c.y : c.y + c.s;
+      const [ax, ay] = corners(c)[3 - k]; // the opposite corner stays put
       drag = { mode: 'resize', i: hit.i, sx, sy, ax, ay };
     }
   });
@@ -543,29 +672,46 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     const p = toImage(e);
     if (!drag) {
       const hit = hitTest(p);
-      canvas.style.cursor = !hit ? 'default' : hit.mode === 'move' ? 'move' : cursorFor[hit.corner];
+      canvas.style.cursor = !hit ? 'default' : hit.mode === 'move' ? 'move' : hit.mode === 'rotate' ? 'grab' : cursorFor(hit.i, hit.corner);
       return;
     }
     const c = crops[drag.i];
     const src = imgOf(drag.i).img;
     const w = src.naturalWidth, h = src.naturalHeight;
     if (drag.mode === 'move') {
-      c.x = p.x - drag.dx; c.y = p.y - drag.dy;
+      c.cx = p.x - drag.dx; c.cy = p.y - drag.dy;
       clamp(drag.i);
+    } else if (drag.mode === 'rotate') {
+      // The handle points to the top of the avatar, so its direction gives the frame angle
+      const a = Math.atan2(p.y - c.cy, p.x - c.cx) + Math.PI / 2;
+      let deg = (c.flip ? 1 : -1) * a / RAD;
+      if (e.shiftKey) deg = Math.round(deg / 15) * 15;
+      setRotation(drag.i, deg);
+      return;
     } else {
-      const ext = Math.max(drag.sx * (p.x - drag.ax), drag.sy * (p.y - drag.ay));
-      const maxX = drag.sx > 0 ? w - drag.ax : drag.ax;
-      const maxY = drag.sy > 0 ? h - drag.ay : drag.ay;
-      const s = Math.max(MIN, Math.min(ext, maxX, maxY));
-      c.s = s;
-      c.x = drag.sx > 0 ? drag.ax : drag.ax - s;
-      c.y = drag.sy > 0 ? drag.ay : drag.ay - s;
+      const a = frameAngle(c), co = Math.cos(a), si = Math.sin(a);
+      const dx = p.x - drag.ax, dy = p.y - drag.ay;
+      const ext = Math.max(drag.sx * (dx * co + dy * si), drag.sy * (-dx * si + dy * co));
+      // Centre = anchor + s * (kx, ky); the half width of the rotated box = s * m
+      const kx = (drag.sx * co - drag.sy * si) / 2;
+      const ky = (drag.sx * si + drag.sy * co) / 2;
+      const m = (Math.abs(co) + Math.abs(si)) / 2;
+      let maxS = Infinity;
+      if (m - kx > 1e-9) maxS = Math.min(maxS, drag.ax / (m - kx));
+      if (m + kx > 1e-9) maxS = Math.min(maxS, (w - drag.ax) / (m + kx));
+      if (m - ky > 1e-9) maxS = Math.min(maxS, drag.ay / (m - ky));
+      if (m + ky > 1e-9) maxS = Math.min(maxS, (h - drag.ay) / (m + ky));
+      const s = Math.max(MIN, Math.min(ext, maxS));
+      c.s = c.base = s;
+      c.cx = drag.ax + s * kx;
+      c.cy = drag.ay + s * ky;
+      clamp(drag.i);
       syncSize(drag.i);
     }
     draw();
   });
 
-  function endDrag() { drag = null; }
+  function endDrag() { if (drag && drag.mode === 'rotate') canvas.style.cursor = 'grab'; drag = null; }
   canvas.addEventListener('pointerup', endDrag);
   canvas.addEventListener('pointercancel', endDrag);
 
@@ -574,12 +720,11 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     const o = 1 - from;
     if (!imgOf(o)) return;
     const c = crops[o];
-    const cx = c.x + c.s / 2, cy = c.y + c.s / 2;
-    c.s = crops[from].s;
-    c.x = cx - c.s / 2; c.y = cy - c.s / 2;
+    c.s = c.base = crops[from].s;
     clamp(o);
   }
 
+  linkRot.addEventListener('change', () => { if (linkRot.value !== 'independent') setRotation(active, crops[active].rot); });
   linkSize.addEventListener('change', () => { if (linkSize.checked) { syncSize(active); draw(); } });
 
   canvas.addEventListener('keydown', e => {
@@ -589,12 +734,16 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
     const unit = step / Math.max(scale, 0.0001);
     let used = true;
     switch (e.key) {
-      case 'ArrowLeft': c.x -= unit; break;
-      case 'ArrowRight': c.x += unit; break;
-      case 'ArrowUp': c.y -= unit; break;
-      case 'ArrowDown': c.y += unit; break;
-      case '+': case '=': { const cx = c.x + c.s / 2, cy = c.y + c.s / 2; c.s += unit * 2; c.x = cx - c.s / 2; c.y = cy - c.s / 2; syncSize(active); break; }
-      case '-': case '_': { const cx = c.x + c.s / 2, cy = c.y + c.s / 2; c.s -= unit * 2; c.x = cx - c.s / 2; c.y = cy - c.s / 2; syncSize(active); break; }
+      case 'ArrowLeft': c.cx -= unit; break;
+      case 'ArrowRight': c.cx += unit; break;
+      case 'ArrowUp': c.cy -= unit; break;
+      case 'ArrowDown': c.cy += unit; break;
+      case '+': case '=': c.s += unit * 2; clamp(active); c.base = c.s; syncSize(active); break;
+      case '-': case '_': c.s -= unit * 2; clamp(active); c.base = c.s; syncSize(active); break;
+      case '[': setRotation(active, c.rot - 1); break;
+      case '{': setRotation(active, c.rot - 15); break;
+      case ']': setRotation(active, c.rot + 1); break;
+      case '}': setRotation(active, c.rot + 15); break;
       case '1': setActive(0); break;
       case '2': setActive(1); break;
       default: used = false;
@@ -621,6 +770,18 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
       e.currentTarget.textContent = crops[i].flip ? 'Mirrored' : 'Mirror';
       draw();
     });
+    card.querySelector('[data-rot]').addEventListener('input', e => {
+      if (active !== i) setActive(i);
+      setRotation(i, parseFloat(e.target.value));
+    });
+    card.querySelectorAll('[data-rot-step]').forEach(b => b.addEventListener('click', () => {
+      if (active !== i) setActive(i);
+      setRotation(i, crops[i].rot + parseInt(b.dataset.rotStep, 10));
+    }));
+    card.querySelector('[data-rot-reset]').addEventListener('click', () => {
+      if (active !== i) setActive(i);
+      setRotation(i, 0);
+    });
     card.querySelector('[data-own]').addEventListener('click', () => { ownTarget = i; fileOwn.click(); });
     card.querySelector('[data-reset]').addEventListener('click', () => {
       crops[i].own = null;
@@ -637,6 +798,7 @@ select { font: inherit; border: 1.5px solid var(--line); background: var(--surfa
       card.querySelector('[data-reset]').hidden = !crops[i].own;
       card.querySelector('[data-own]').textContent = crops[i].own ? 'Change its image' : 'Use a different image';
       card.querySelector('[data-dl]').disabled = !has;
+      card.querySelectorAll('[data-rot], [data-rot-step], [data-rot-reset]').forEach(el => { el.disabled = !has; });
       const src = card.querySelector('[data-src]');
       src.textContent = crops[i].own ? 'own image' : (shared ? 'shared image' : '');
     });
