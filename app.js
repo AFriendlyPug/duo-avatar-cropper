@@ -492,7 +492,8 @@
 
   // Waifu2x upscaling via onnxruntime-web + Swin2SR
   const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js';
-  const MODEL_URL = 'https://huggingface.co/Xenova/swin2SR-classical-sr-x2-64/resolve/main/onnx/model_quantized.onnx';
+  // cunet art noise1_scale2x: CNN-based waifu2x (float32 only, no int64), ~5 MB
+  const MODEL_URL = 'https://huggingface.co/deepghs/waifu2x_onnx/resolve/main/20250502/onnx_models/cunet/art/noise1_scale2x.onnx';
   let upscaleSession = null;
 
   function loadScript(url) {
@@ -510,7 +511,7 @@
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
     // numThreads=1 avoids SharedArrayBuffer (requires COOP/COEP headers GitHub Pages doesn't send)
     ort.env.wasm.numThreads = 1;
-    onProgress('Downloading waifu2x model (first use, ~12 MB)...');
+    onProgress('Downloading waifu2x model (first use, ~5 MB)...');
     const resp = await fetch(MODEL_URL);
     if (!resp.ok) throw new Error('Model download failed (' + resp.status + ').');
     const total = parseInt(resp.headers.get('content-length') || '0', 10);
@@ -534,7 +535,7 @@
     await ensureUpscaler(onProgress);
     const W = src.width, H = src.height;
     const srcCtx = src.getContext('2d');
-    const TILE = 64, PAD = 8, SCALE = 2;
+    const TILE = 256, PAD = 16, SCALE = 2;
     const dst = document.createElement('canvas');
     dst.width = W * SCALE; dst.height = H * SCALE;
     const dstCtx = dst.getContext('2d');
