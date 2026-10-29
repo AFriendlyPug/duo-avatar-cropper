@@ -145,8 +145,6 @@ label.inline { display: inline-flex; align-items: center; gap: 0.4rem; color: va
 .export { display: grid; gap: 0.45rem; }
 .export .opts { display: flex; align-items: center; gap: 0.45rem; color: var(--muted); font-size: 0.82rem; }
 .status { font-size: 0.78rem; color: var(--muted); min-height: 1.2em; margin: 0; }
-.waifu-note { font-size: 0.72rem; color: var(--muted); font-weight: 400; }
-
 .footer {
   flex-shrink: 0; padding: 0.35rem 0; border-top: 1.5px solid var(--line);
   margin-top: 0.35rem; font-size: 0.74rem; color: var(--muted); text-align: center;

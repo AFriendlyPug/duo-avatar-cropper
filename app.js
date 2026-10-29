@@ -431,17 +431,12 @@
   window.addEventListener('paste',e=>{ const it=[...e.clipboardData?.items||[]].find(x=>x.type.startsWith('image/')); if (it){e.preventDefault();setShared(it.getAsFile());} });
 
   // Export
-  async function cropBlob(i) {
-    const n = parseInt(outSize.value, 10);
-    const cv = document.createElement('canvas');
-    cv.width = n; cv.height = n; paintCrop(i, cv);
-    let final = cv;
-    if (document.getElementById('useWaifu2x').checked) {
-      final = await upscaleCanvas(cv, setStatus);
-    }
-    return new Promise((resolve, reject) =>
-      final.toBlob(b => b ? resolve(b) : reject(new Error('Export failed.')), 'image/png')
-    );
+  function cropBlob(i) {
+    return new Promise((resolve,reject)=>{
+      const n=parseInt(outSize.value,10), cv=document.createElement('canvas');
+      cv.width=n; cv.height=n; paintCrop(i,cv);
+      cv.toBlob(b=>b?resolve(b):reject(new Error('Export failed.')),'image/png');
+    });
   }
   function errText(err) {
     const code=err?.code;
@@ -489,94 +484,6 @@
     try { await navigator.clipboard.write([new ClipboardItem({'image/png':previewBlob()})]); copyStatus.textContent='Copied. Paste into a chat to share.'; }
     catch(e) { try{await dl.save({filename:'matching-avatars-preview.png',data:await previewBlob()});copyStatus.textContent='Copying blocked, downloaded instead.';} catch(e2){copyStatus.textContent=e2.message;} }
   });
-
-  // Waifu2x upscaling via onnxruntime-web + Swin2SR
-  const ORT_URL = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/ort.min.js';
-  // cunet art noise1_scale2x: CNN-based waifu2x (float32 only, no int64), ~5 MB
-  const MODEL_URL = 'https://huggingface.co/deepghs/waifu2x_onnx/resolve/main/20250502/onnx_models/cunet/art/noise1_scale2x.onnx';
-  let upscaleSession = null;
-
-  function loadScript(url) {
-    return new Promise((resolve, reject) => {
-      if (document.querySelector(`script[src="${url}"]`)) { resolve(); return; }
-      const s = document.createElement('script');
-      s.src = url; s.onload = resolve; s.onerror = () => reject(new Error('Could not load: ' + url));
-      document.head.appendChild(s);
-    });
-  }
-
-  async function ensureUpscaler(onProgress) {
-    if (upscaleSession) return;
-    if (!window.ort) { onProgress('Loading waifu2x engine...'); await loadScript(ORT_URL); }
-    ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
-    // numThreads=1 avoids SharedArrayBuffer (requires COOP/COEP headers GitHub Pages doesn't send)
-    ort.env.wasm.numThreads = 1;
-    onProgress('Downloading waifu2x model (first use, ~5 MB)...');
-    const resp = await fetch(MODEL_URL);
-    if (!resp.ok) throw new Error('Model download failed (' + resp.status + ').');
-    const total = parseInt(resp.headers.get('content-length') || '0', 10);
-    const reader = resp.body.getReader();
-    const chunks = []; let got = 0;
-    for (;;) {
-      const { done, value } = await reader.read();
-      if (done) break;
-      chunks.push(value); got += value.length;
-      if (total) onProgress('Downloading waifu2x model... ' + Math.round(got / total * 100) + '%');
-    }
-    const buf = new Uint8Array(got); let off = 0;
-    for (const c of chunks) { buf.set(c, off); off += c.length; }
-    onProgress('Preparing waifu2x model...');
-    upscaleSession = await ort.InferenceSession.create(buf.buffer, {
-      executionProviders: ['webgl', 'wasm']
-    });
-  }
-
-  async function upscaleCanvas(src, onProgress) {
-    await ensureUpscaler(onProgress);
-    const W = src.width, H = src.height;
-    const srcCtx = src.getContext('2d');
-    const TILE = 256, PAD = 16, SCALE = 2;
-    const dst = document.createElement('canvas');
-    dst.width = W * SCALE; dst.height = H * SCALE;
-    const dstCtx = dst.getContext('2d');
-    const inName = upscaleSession.inputNames[0];
-    const outName = upscaleSession.outputNames[0];
-    const cols = Math.ceil(W / TILE), rows = Math.ceil(H / TILE), total = cols * rows;
-    let done = 0;
-    for (let ty = 0; ty < rows; ty++) {
-      for (let tx = 0; tx < cols; tx++) {
-        // Padded source region
-        const sx = Math.max(0, tx * TILE - PAD), sy = Math.max(0, ty * TILE - PAD);
-        const ex = Math.min(W, (tx + 1) * TILE + PAD), ey = Math.min(H, (ty + 1) * TILE + PAD);
-        const sw = ex - sx, sh = ey - sy;
-        const id = srcCtx.getImageData(sx, sy, sw, sh);
-        const np = sw * sh, inp = new Float32Array(3 * np);
-        for (let i = 0; i < np; i++) {
-          inp[i]      = id.data[i*4]   / 255;
-          inp[np+i]   = id.data[i*4+1] / 255;
-          inp[2*np+i] = id.data[i*4+2] / 255;
-        }
-        const result = await upscaleSession.run({ [inName]: new ort.Tensor('float32', inp, [1, 3, sh, sw]) });
-        const out = result[outName];
-        const [,, oh, ow] = out.dims, onp = ow * oh;
-        const pixels = new Uint8ClampedArray(onp * 4);
-        for (let i = 0; i < onp; i++) {
-          pixels[i*4]   = Math.max(0, Math.min(255, Math.round(out.data[i]        * 255)));
-          pixels[i*4+1] = Math.max(0, Math.min(255, Math.round(out.data[onp+i]   * 255)));
-          pixels[i*4+2] = Math.max(0, Math.min(255, Math.round(out.data[2*onp+i] * 255)));
-          pixels[i*4+3] = 255;
-        }
-        // Offsets into the upscaled tile to skip the padded edges
-        const cropL = (tx * TILE - sx) * SCALE, cropT = (ty * TILE - sy) * SCALE;
-        const dw = Math.min(TILE, W - tx * TILE) * SCALE, dh = Math.min(TILE, H - ty * TILE) * SCALE;
-        const tmp = document.createElement('canvas'); tmp.width = ow; tmp.height = oh;
-        tmp.getContext('2d').putImageData(new ImageData(pixels, ow, oh), 0, 0);
-        dstCtx.drawImage(tmp, cropL, cropT, dw, dh, tx * TILE * SCALE, ty * TILE * SCALE, dw, dh);
-        onProgress('Running waifu2x... ' + Math.round(++done / total * 100) + '%');
-      }
-    }
-    return dst;
-  }
 
   // Resize handling
   new ResizeObserver(()=>{ if (stageSource()) layoutCanvas(false); }).observe(stage);
