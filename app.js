@@ -508,6 +508,8 @@
     if (upscaleSession) return;
     if (!window.ort) { onProgress('Loading waifu2x engine...'); await loadScript(ORT_URL); }
     ort.env.wasm.wasmPaths = 'https://cdn.jsdelivr.net/npm/onnxruntime-web@1.18.0/dist/';
+    // numThreads=1 avoids SharedArrayBuffer (requires COOP/COEP headers GitHub Pages doesn't send)
+    ort.env.wasm.numThreads = 1;
     onProgress('Downloading waifu2x model (first use, ~12 MB)...');
     const resp = await fetch(MODEL_URL);
     if (!resp.ok) throw new Error('Model download failed (' + resp.status + ').');
@@ -523,7 +525,9 @@
     const buf = new Uint8Array(got); let off = 0;
     for (const c of chunks) { buf.set(c, off); off += c.length; }
     onProgress('Preparing waifu2x model...');
-    upscaleSession = await ort.InferenceSession.create(buf.buffer);
+    upscaleSession = await ort.InferenceSession.create(buf.buffer, {
+      executionProviders: ['webgl', 'wasm']
+    });
   }
 
   async function upscaleCanvas(src, onProgress) {
