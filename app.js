@@ -276,8 +276,7 @@
     else if (hit.mode==='rotate') { drag={mode:'rotate',i:hit.i}; canvas.style.cursor='grabbing'; }
     else {
       const k=hit.corner, sx=(k===1||k===3)?1:-1, sy=(k===2||k===3)?1:-1;
-      const [ax,ay]=corners(c)[3-k];
-      drag={mode:'resize',i:hit.i,sx,sy,ax,ay};
+      drag={mode:'resize',i:hit.i,sx,sy};
     }
   });
 
@@ -299,18 +298,9 @@
       if (e.shiftKey) deg=Math.round(deg/15)*15;
       setRotation(drag.i,deg); return;
     } else {
-      const a=frameAngle(c),co=Math.cos(a),si=Math.sin(a);
-      const dx=p.x-drag.ax,dy=p.y-drag.ay;
-      const ext=Math.max(drag.sx*(dx*co+dy*si),drag.sy*(-dx*si+dy*co));
-      const kx=(drag.sx*co-drag.sy*si)/2, ky=(drag.sx*si+drag.sy*co)/2;
-      const m=(Math.abs(co)+Math.abs(si))/2;
-      let maxS=Infinity;
-      if (m-kx>1e-9) maxS=Math.min(maxS,drag.ax/(m-kx));
-      if (m+kx>1e-9) maxS=Math.min(maxS,(w-drag.ax)/(m+kx));
-      if (m-ky>1e-9) maxS=Math.min(maxS,drag.ay/(m-ky));
-      if (m+ky>1e-9) maxS=Math.min(maxS,(h-drag.ay)/(m+ky));
-      const s=Math.max(MIN,Math.min(ext,maxS));
-      c.s=c.base=s; c.cx=drag.ax+s*kx; c.cy=drag.ay+s*ky; clamp(drag.i); syncSize(drag.i);
+      const l=toLocal(c,p);
+      const half=Math.max(drag.sx*l.x, drag.sy*l.y, MIN/2);
+      c.s=c.base=half*2; clamp(drag.i); syncSize(drag.i);
     }
     draw();
   });
