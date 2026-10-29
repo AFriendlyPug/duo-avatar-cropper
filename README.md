@@ -32,6 +32,13 @@ Crop one image into two matching square profile pictures for Discord. Runs entir
 | <kbd>Space</kbd> + drag | Pan the canvas |
 | Scroll wheel | Zoom in/out toward cursor |
 
+## Publishing on GitHub Pages
+
+1. Push the three files (`index.html`, `style.css`, `app.js`) to the root of a repository.
+2. Go to **Settings > Pages**.
+3. Set Source to **Deploy from a branch**, choose `main` and `/ (root)`, then save.
+4. After a minute the site is live at `https://<your-username>.github.io/<repo-name>/`.
+
 ## Dependencies
 
-JSZip 3.10.1 loaded from cdnjs, used only for the "Download both" zip export. Everything else is plain HTML, CSS and JavaScript with no build step.
+None. Plain HTML, CSS and JavaScript with no build step and no external dependencies.

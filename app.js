@@ -396,7 +396,7 @@
       card.querySelector('[data-src]').textContent=crops[i].own?'own image':(shared?'shared image':'');
     });
     const both=!!imgOf(0)&&!!imgOf(1);
-    document.getElementById('dlBoth').disabled=!both||typeof JSZip==='undefined';
+    document.getElementById('dlBoth').disabled=!both;
     document.getElementById('copyPreview').disabled=!both;
   }
 
@@ -449,13 +449,10 @@
     catch(err){setStatus(errText(err));}
   }
   document.getElementById('dlBoth').addEventListener('click',async()=>{
-    if (typeof JSZip==='undefined') return;
     try {
-      setStatus('Preparing both avatars...');
-      const zip=new JSZip();
-      zip.file(`avatar-1-${outSize.value}px.png`,await cropBlob(0));
-      zip.file(`avatar-2-${outSize.value}px.png`,await cropBlob(1));
-      await dl.save({filename:'matching-avatars.zip',data:await zip.generateAsync({type:'blob'})});
+      setStatus('Downloading both avatars...');
+      await dl.save({filename:`avatar-1-${outSize.value}px.png`,data:await cropBlob(0)});
+      await dl.save({filename:`avatar-2-${outSize.value}px.png`,data:await cropBlob(1)});
       setStatus('Downloaded both avatars.');
     } catch(err){setStatus(errText(err));}
   });
