@@ -17,7 +17,7 @@
 html, body { height: 100%; margin: 0; }
 body {
   background: var(--bg); color: var(--ink); overflow: hidden;
-  font-family: "Bricolage Grotesque", system-ui, -apple-system, "Segoe UI", sans-serif;
+  font-family: "Lato", system-ui, -apple-system, "Segoe UI", sans-serif;
   font-size: 1rem; line-height: 1.5;
 }
 .shell {

@@ -13,10 +13,11 @@ Crop one image into two matching square profile pictures for Discord. Runs entir
 - Per-avatar rotation via slider, 90° step buttons, a drag handle on the crop, or the <kbd>[</kbd> and <kbd>]</kbd> keys — independent, linked (same angle), or linked opposite (handy for pairs leaning towards each other)
 - Per-avatar horizontal mirror and vertical flip
 - Centre crop button to reset a crop to the middle of its image
+- Crop corners scale from the centre, so the crop stays centred as you resize
 - Optional "keep both the same size" link
-- Live previews at profile and chat size, plus a side by side circular preview with a swap button to flip which avatar appears on which side
-- Copy the side by side preview to clipboard to paste directly into a chat
-- PNG export at 256, 512 or 1024 px, individually or both as a .zip
+- Live previews at profile and chat size, plus a side-by-side circular preview with a swap button to flip which avatar appears on which side
+- Copy the side-by-side preview to clipboard to paste directly into a chat
+- PNG export at 256, 512 or 1024 px — download individually or both with one button press
 - Drag and drop, paste from clipboard, keyboard nudging (<kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> to move, <kbd>+</kbd><kbd>−</kbd> to resize, <kbd>Shift</kbd> for larger steps)
 - Respects your system light/dark preference
 
@@ -32,13 +33,6 @@ Crop one image into two matching square profile pictures for Discord. Runs entir
 | <kbd>Space</kbd> + drag | Pan the canvas |
 | Scroll wheel | Zoom in/out toward cursor |
 
-## Publishing on GitHub Pages
-
-1. Push the three files (`index.html`, `style.css`, `app.js`) to the root of a repository.
-2. Go to **Settings > Pages**.
-3. Set Source to **Deploy from a branch**, choose `main` and `/ (root)`, then save.
-4. After a minute the site is live at `https://<your-username>.github.io/<repo-name>/`.
-
 ## Dependencies
 
-None. Plain HTML, CSS and JavaScript with no build step and no external dependencies.
+One network request: the Lato typeface loaded from Google Fonts. Everything else is plain HTML, CSS and JavaScript with no libraries and no build step.
