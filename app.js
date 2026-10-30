@@ -10,10 +10,22 @@
   const linkSize = document.getElementById('linkSize');
   const linkRot = document.getElementById('linkRot');
   const outSize = document.getElementById('outSize');
+  const outFormat = document.getElementById('outFormat');
   const maskOpacityEl = document.getElementById('maskOpacity');
   const zoomLevelEl = document.getElementById('zoomLevel');
   const cards = [...document.querySelectorAll('.card[data-i]')];
   const tabs = [...document.querySelectorAll('.tabs button')];
+
+  let undoStack = null, redoStack = null;
+
+  function snapshotCrops() {
+    return crops.map(({cx,cy,s,base,rot,flip,flipV}) => ({cx,cy,s,base,rot,flip,flipV}));
+  }
+  function saveUndo() { undoStack = snapshotCrops(); redoStack = null; }
+  function applySnapshot(snap) {
+    snap.forEach((s,i) => Object.assign(crops[i], s));
+    updateRotUI(); updateButtons(); draw();
+  }
 
   let shared = null;
   const crops = [
@@ -220,6 +232,7 @@
     const [l,r] = sideSwapped ? [1,0] : [0,1];
     paintCrop(l, document.getElementById('sideA')); paintCrop(r, document.getElementById('sideB'));
     paintCrop(l, document.getElementById('rowA')); paintCrop(r, document.getElementById('rowB'));
+    paintCrop(l, document.getElementById('memA')); paintCrop(r, document.getElementById('memB'));
   }
 
   function toImage(e) {
@@ -272,6 +285,7 @@
     e.preventDefault(); canvas.setPointerCapture(e.pointerId);
     if (hit.i!==active) setActive(hit.i,true);
     const c=crops[hit.i];
+    saveUndo();
     if (hit.mode==='move') { drag={mode:'move',i:hit.i,dx:p.x-c.cx,dy:p.y-c.cy}; }
     else if (hit.mode==='rotate') { drag={mode:'rotate',i:hit.i}; canvas.style.cursor='grabbing'; }
     else {
@@ -317,15 +331,26 @@
   });
   window.addEventListener('keyup', e => { if (e.key===' ') { spaceDown=false; if (!isPanning) canvas.style.cursor='default'; } });
 
+  window.addEventListener('keydown', e => {
+    if ((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey) {
+      if (!undoStack) return; e.preventDefault();
+      const cur=snapshotCrops(); applySnapshot(undoStack); redoStack=cur; undoStack=null;
+    }
+    if ((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z' && e.shiftKey))) {
+      if (!redoStack) return; e.preventDefault();
+      const cur=snapshotCrops(); applySnapshot(redoStack); undoStack=cur; redoStack=null;
+    }
+  });
+
   canvas.addEventListener('keydown', e => {
     const c=crops[active]; if (!imgOf(active)) return;
     const step=e.shiftKey?10:1, unit=step/Math.max(ts(),0.0001);
     let used=true;
     switch(e.key) {
-      case 'ArrowLeft': c.cx-=unit; break; case 'ArrowRight': c.cx+=unit; break;
-      case 'ArrowUp': c.cy-=unit; break; case 'ArrowDown': c.cy+=unit; break;
-      case '+': case '=': c.s+=unit*2; clamp(active); c.base=c.s; syncSize(active); break;
-      case '-': case '_': c.s-=unit*2; clamp(active); c.base=c.s; syncSize(active); break;
+      case 'ArrowLeft': saveUndo(); c.cx-=unit; break; case 'ArrowRight': saveUndo(); c.cx+=unit; break;
+      case 'ArrowUp': saveUndo(); c.cy-=unit; break; case 'ArrowDown': saveUndo(); c.cy+=unit; break;
+      case '+': case '=': saveUndo(); c.s+=unit*2; clamp(active); c.base=c.s; syncSize(active); break;
+      case '-': case '_': saveUndo(); c.s-=unit*2; clamp(active); c.base=c.s; syncSize(active); break;
       case '[': setRotation(active,c.rot-1); break; case '{': setRotation(active,c.rot-15); break;
       case ']': setRotation(active,c.rot+1); break; case '}': setRotation(active,c.rot+15); break;
       case '1': setActive(0); break; case '2': setActive(1); break;
@@ -355,24 +380,25 @@
   cards.forEach((card,i) => {
     card.querySelector('[data-pick]').addEventListener('click',()=>setActive(i));
     card.querySelector('[data-flip]').addEventListener('click',e => {
-      crops[i].flip=!crops[i].flip;
+      saveUndo(); crops[i].flip=!crops[i].flip;
       e.currentTarget.setAttribute('aria-pressed',String(crops[i].flip));
       e.currentTarget.textContent=crops[i].flip?'Mirrored':'Mirror';
       draw();
     });
     card.querySelector('[data-flipv]').addEventListener('click',e => {
-      crops[i].flipV=!crops[i].flipV;
+      saveUndo(); crops[i].flipV=!crops[i].flipV;
       e.currentTarget.setAttribute('aria-pressed',String(crops[i].flipV));
       e.currentTarget.textContent=crops[i].flipV?'Flipped V':'Flip V';
       draw();
     });
-    card.querySelector('[data-centre]').addEventListener('click',()=>{ if (!imgOf(i)) return; centreFull(i); draw(); });
-    card.querySelector('[data-rot]').addEventListener('input',e=>{ if (active!==i) setActive(i); setRotation(i,parseFloat(e.target.value)); });
-    card.querySelectorAll('[data-rot-step]').forEach(b=>b.addEventListener('click',()=>{ if (active!==i) setActive(i); setRotation(i,crops[i].rot+parseInt(b.dataset.rotStep,10)); }));
-    card.querySelector('[data-rot-reset]').addEventListener('click',()=>{ if (active!==i) setActive(i); setRotation(i,0); });
+    card.querySelector('[data-centre]').addEventListener('click',()=>{ if (!imgOf(i)) return; saveUndo(); centreFull(i); draw(); });
+    card.querySelector('[data-rot]').addEventListener('input',e=>{ if (active!==i) setActive(i); saveUndo(); setRotation(i,parseFloat(e.target.value)); });
+    card.querySelectorAll('[data-rot-step]').forEach(b=>b.addEventListener('click',()=>{ if (active!==i) setActive(i); saveUndo(); setRotation(i,crops[i].rot+parseInt(b.dataset.rotStep,10)); }));
+    card.querySelector('[data-rot-reset]').addEventListener('click',()=>{ if (active!==i) setActive(i); saveUndo(); setRotation(i,0); });
     card.querySelector('[data-own]').addEventListener('click',()=>{ ownTarget=i; fileOwn.click(); });
-    card.querySelector('[data-reset]').addEventListener('click',()=>{ crops[i].own=null; if (shared) defaultCrops(shared.img,[i]); setActive(i); showStage(false); });
+    card.querySelector('[data-reset]').addEventListener('click',()=>{ saveUndo(); crops[i].own=null; if (shared) defaultCrops(shared.img,[i]); setActive(i); showStage(false); });
     card.querySelector('[data-dl]').addEventListener('click',()=>downloadOne(i));
+    card.querySelector('[data-copy]').addEventListener('click',()=>copyOne(i));
   });
 
   function updateButtons() {
@@ -381,6 +407,7 @@
       card.querySelector('[data-reset]').hidden=!crops[i].own;
       card.querySelector('[data-own]').textContent=crops[i].own?'Change its image':'Use a different image';
       card.querySelector('[data-dl]').disabled=!has;
+      card.querySelector('[data-copy]').disabled=!has;
       card.querySelector('[data-centre]').disabled=!has;
       card.querySelectorAll('[data-rot],[data-rot-step],[data-rot-reset]').forEach(el=>el.disabled=!has);
       card.querySelector('[data-src]').textContent=crops[i].own?'own image':(shared?'shared image':'');
@@ -392,6 +419,28 @@
 
   document.getElementById('openBtn').addEventListener('click',()=>fileShared.click());
   document.getElementById('emptyBtn').addEventListener('click',()=>fileShared.click());
+
+  // URL loading
+  const urlBtn=document.getElementById('urlBtn'), urlRow=document.getElementById('urlRow');
+  const urlInput=document.getElementById('urlInput');
+  urlBtn.addEventListener('click',()=>{ urlRow.hidden=false; urlInput.focus(); });
+  document.getElementById('urlCancel').addEventListener('click',()=>{ urlRow.hidden=true; urlInput.value=''; });
+  async function loadFromUrl(raw) {
+    const url=raw.trim(); if (!url) return;
+    setStatus('Loading image…');
+    try {
+      const img=await new Promise((resolve,reject)=>{
+        const i=new Image(); i.crossOrigin='anonymous';
+        i.onload=()=>resolve({img:i,name:url.split('/').pop().split('?')[0]||'image'});
+        i.onerror=()=>reject(new Error('Could not load image. The server may not allow cross-origin requests.'));
+        i.src=url;
+      });
+      shared=img; defaultCrops(shared.img,[0,1].filter(i=>!crops[i].own));
+      showStage(true); setStatus(''); urlRow.hidden=true; urlInput.value='';
+    } catch(e) { setStatus(e.message); }
+  }
+  document.getElementById('urlLoad').addEventListener('click',()=>loadFromUrl(urlInput.value));
+  urlInput.addEventListener('keydown',e=>{ if (e.key==='Enter') loadFromUrl(urlInput.value); if (e.key==='Escape') { urlRow.hidden=true; urlInput.value=''; } });
   fileShared.addEventListener('change',()=>{ if (fileShared.files[0]) setShared(fileShared.files[0]); fileShared.value=''; });
   fileOwn.addEventListener('change',()=>{ if (fileOwn.files[0]) setOwn(ownTarget,fileOwn.files[0]); fileOwn.value=''; });
 
@@ -421,11 +470,12 @@
   window.addEventListener('paste',e=>{ const it=[...e.clipboardData?.items||[]].find(x=>x.type.startsWith('image/')); if (it){e.preventDefault();setShared(it.getAsFile());} });
 
   // Export
+  function exportFormat() { return outFormat.value==='webp' ? {mime:'image/webp',ext:'webp'} : {mime:'image/png',ext:'png'}; }
   function cropBlob(i) {
     return new Promise((resolve,reject)=>{
-      const n=parseInt(outSize.value,10), cv=document.createElement('canvas');
+      const n=parseInt(outSize.value,10), {mime}=exportFormat(), cv=document.createElement('canvas');
       cv.width=n; cv.height=n; paintCrop(i,cv);
-      cv.toBlob(b=>b?resolve(b):reject(new Error('Export failed.')),'image/png');
+      cv.toBlob(b=>b?resolve(b):reject(new Error('Export failed.')),mime);
     });
   }
   function errText(err) {
@@ -440,17 +490,30 @@
   async function downloadOne(i) {
     try {
       setStatus('Preparing avatar '+(i+1)+'...');
-      const filename = `avatar-${i+1}-${outSize.value}px.png`;
-      const b = await cropBlob(i);
+      const {ext}=exportFormat(), filename=`avatar-${i+1}-${outSize.value}px.${ext}`;
+      const b=await cropBlob(i);
       await dl.save({filename, data: b});
       trackDownload(filename);
       setStatus('Downloaded avatar '+(i+1)+'.');
     } catch(err){setStatus(errText(err));}
   }
+  async function copyOne(i) {
+    const n=parseInt(outSize.value,10), cv=document.createElement('canvas');
+    cv.width=n; cv.height=n; paintCrop(i,cv);
+    const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
+    if (!window.isSecureContext||!navigator.clipboard?.write||!window.ClipboardItem) {
+      await dl.save({filename:`avatar-${i+1}.png`,data:blob}); setStatus('Clipboard not available — downloaded instead.'); return;
+    }
+    try {
+      await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
+      setStatus('Avatar '+(i+1)+' copied to clipboard.');
+    } catch(e) { setStatus('Copy blocked by browser.'); }
+  }
   document.getElementById('dlBoth').addEventListener('click',async()=>{
     try {
       setStatus('Downloading both avatars...');
-      const f1 = `avatar-1-${outSize.value}px.png`, f2 = `avatar-2-${outSize.value}px.png`;
+      const {ext}=exportFormat();
+      const f1=`avatar-1-${outSize.value}px.${ext}`, f2=`avatar-2-${outSize.value}px.${ext}`;
       await dl.save({filename: f1, data: await cropBlob(0)});
       trackDownload(f1);
       await dl.save({filename: f2, data: await cropBlob(1)});

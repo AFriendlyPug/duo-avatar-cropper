@@ -28,8 +28,14 @@
     </div>
     <div class="toolbar">
       <button class="primary" id="openBtn" type="button">Choose image</button>
+      <button type="button" id="urlBtn">From URL</button>
       <input type="file" id="fileShared" accept="image/*">
       <input type="file" id="fileOwn" accept="image/*">
+      <div class="url-row" id="urlRow" hidden>
+        <input type="url" id="urlInput" placeholder="Paste image URL…" autocomplete="off">
+        <button type="button" id="urlLoad">Load</button>
+        <button type="button" id="urlCancel" aria-label="Cancel">✕</button>
+      </div>
     </div>
   </header>
 
@@ -58,6 +64,7 @@
           <button type="button" data-own>Use a different image</button>
           <button type="button" data-reset hidden>Use shared image</button>
           <button type="button" data-dl disabled>Download</button>
+          <button type="button" data-copy disabled>Copy</button>
         </div>
       </div>
     </div>
@@ -94,7 +101,7 @@
         <button type="button" id="zoomFit">Fit</button>
         <span class="zoom-hint">Scroll to zoom · Space + drag to pan</span>
       </div>
-      <p class="keys">Drag inside a square to move it, drag a corner to resize, drag the round handle to rotate (hold <kbd>Shift</kbd> to snap to 15°). <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> nudge (<kbd>Shift</kbd> = larger step), <kbd>+</kbd><kbd>−</kbd> resize, <kbd>[</kbd><kbd>]</kbd> rotate 1° (15° with <kbd>Shift</kbd>), <kbd>Tab</kbd> on the buttons above switches crops.</p>
+      <p class="keys">Drag inside a square to move it, drag a corner to resize, drag the round handle to rotate (hold <kbd>Shift</kbd> to snap to 15°). <kbd>←</kbd><kbd>→</kbd><kbd>↑</kbd><kbd>↓</kbd> nudge (<kbd>Shift</kbd> = larger step), <kbd>+</kbd><kbd>−</kbd> resize, <kbd>[</kbd><kbd>]</kbd> rotate 1° (15° with <kbd>Shift</kbd>), <kbd>Tab</kbd> on the buttons above switches crops. <kbd>Ctrl</kbd><kbd>Z</kbd> undo, <kbd>Ctrl</kbd><kbd>Y</kbd> redo.</p>
     </div>
 
     <!-- Avatar 2 + preview + export panel -->
@@ -121,6 +128,7 @@
           <button type="button" data-own>Use a different image</button>
           <button type="button" data-reset hidden>Use shared image</button>
           <button type="button" data-dl disabled>Download</button>
+          <button type="button" data-copy disabled>Copy</button>
         </div>
       </div>
 
@@ -136,16 +144,28 @@
           <button type="button" id="copyPreview" disabled>Copy preview image</button>
           <p class="status" id="copyStatus" role="status"></p>
         </div>
+        <div class="member-list" id="memberList">
+          <div class="member-hd">ONLINE — 2</div>
+          <div class="member-row"><canvas class="member-av" id="memA" width="80" height="80"></canvas><span class="member-name">Avatar 1</span><span class="member-dot"></span></div>
+          <div class="member-row"><canvas class="member-av" id="memB" width="80" height="80"></canvas><span class="member-name">Avatar 2</span><span class="member-dot"></span></div>
+        </div>
       </div>
 
       <div class="card export">
         <div class="opts">
-          <label for="outSize">Export size</label>
-          <select id="outSize">
-            <option value="512" selected>512 × 512</option>
-            <option value="1024">1024 × 1024</option>
-            <option value="256">256 × 256</option>
-          </select>
+          <label class="opt-group" for="outSize"><span>Size</span>
+            <select id="outSize">
+              <option value="512" selected>512 × 512</option>
+              <option value="1024">1024 × 1024</option>
+              <option value="256">256 × 256</option>
+            </select>
+          </label>
+          <label class="opt-group" for="outFormat"><span>Format</span>
+            <select id="outFormat">
+              <option value="png">PNG</option>
+              <option value="webp">WebP</option>
+            </select>
+          </label>
         </div>
 <button type="button" class="primary" id="dlBoth" disabled>Download both</button>
         <p class="status" id="status" role="status"></p>
