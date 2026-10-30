@@ -434,15 +434,27 @@
     if (code==='rate_limited') return 'A save prompt is already open.';
     return err?.message||'Download failed.';
   }
+  function trackDownload(filename) {
+    if (window.gtag) gtag('event', 'file_download', {file_name: filename});
+  }
   async function downloadOne(i) {
-    try { setStatus('Preparing avatar '+(i+1)+'...'); const b=await cropBlob(i); await dl.save({filename:`avatar-${i+1}-${outSize.value}px.png`,data:b}); setStatus('Downloaded avatar '+(i+1)+'.'); }
-    catch(err){setStatus(errText(err));}
+    try {
+      setStatus('Preparing avatar '+(i+1)+'...');
+      const filename = `avatar-${i+1}-${outSize.value}px.png`;
+      const b = await cropBlob(i);
+      await dl.save({filename, data: b});
+      trackDownload(filename);
+      setStatus('Downloaded avatar '+(i+1)+'.');
+    } catch(err){setStatus(errText(err));}
   }
   document.getElementById('dlBoth').addEventListener('click',async()=>{
     try {
       setStatus('Downloading both avatars...');
-      await dl.save({filename:`avatar-1-${outSize.value}px.png`,data:await cropBlob(0)});
-      await dl.save({filename:`avatar-2-${outSize.value}px.png`,data:await cropBlob(1)});
+      const f1 = `avatar-1-${outSize.value}px.png`, f2 = `avatar-2-${outSize.value}px.png`;
+      await dl.save({filename: f1, data: await cropBlob(0)});
+      trackDownload(f1);
+      await dl.save({filename: f2, data: await cropBlob(1)});
+      trackDownload(f2);
       setStatus('Downloaded both avatars.');
     } catch(err){setStatus(errText(err));}
   });
@@ -476,4 +488,5 @@
   new ResizeObserver(()=>{ if (stageSource()) layoutCanvas(false); }).observe(stage);
   if (window.matchMedia) { const mq=window.matchMedia('(prefers-color-scheme: dark)'); if (mq.addEventListener) mq.addEventListener('change',draw); }
   new MutationObserver(draw).observe(document.documentElement,{attributes:true,attributeFilter:['data-theme']});
+
 })();
