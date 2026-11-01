@@ -502,10 +502,14 @@
   function trackDownload(filename) {
     if (window.gtag) gtag('event', 'file_download', {file_name: filename});
   }
+  function srcBaseName(i) {
+    const name = imgOf(i)?.name || 'avatar';
+    return name.replace(/\.[^.]+$/, '');
+  }
   async function downloadOne(i) {
     try {
       setStatus('Preparing avatar '+(i+1)+'...');
-      const {ext}=exportFormat(), filename=`avatar-${i+1}-${outSize.value}px.${ext}`;
+      const {ext}=exportFormat(), filename=`${srcBaseName(i)}-${outSize.value}px.${ext}`;
       const b=await cropBlob(i);
       await dl.save({filename, data: b});
       trackDownload(filename);
@@ -517,7 +521,7 @@
     cv.width=n; cv.height=n; paintCrop(i,cv);
     const blob=await new Promise(r=>cv.toBlob(r,'image/png'));
     if (!window.isSecureContext||!navigator.clipboard?.write||!window.ClipboardItem) {
-      await dl.save({filename:`avatar-${i+1}.png`,data:blob}); setStatus('Clipboard not available — downloaded instead.'); return;
+      await dl.save({filename:`${srcBaseName(i)}.png`,data:blob}); setStatus('Clipboard not available — downloaded instead.'); return;
     }
     try {
       await navigator.clipboard.write([new ClipboardItem({'image/png':blob})]);
@@ -528,7 +532,7 @@
     try {
       setStatus('Downloading both avatars...');
       const {ext}=exportFormat();
-      const f1=`avatar-1-${outSize.value}px.${ext}`, f2=`avatar-2-${outSize.value}px.${ext}`;
+      const f1=`${srcBaseName(0)}-1-${outSize.value}px.${ext}`, f2=`${srcBaseName(1)}-2-${outSize.value}px.${ext}`;
       await dl.save({filename: f1, data: await cropBlob(0)});
       trackDownload(f1);
       await dl.save({filename: f2, data: await cropBlob(1)});
