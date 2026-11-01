@@ -1,5 +1,5 @@
 (function () {
-  const MIN = 16, HANDLE = 10, KNOB = 7, KNOB_INSET = 20, RAD = Math.PI / 180;
+  const MIN = 16, HANDLE = 10, KNOB = 7, KNOB_OUTSET = 24, RAD = Math.PI / 180;
   const canvas = document.getElementById('stageCanvas');
   const ctx = canvas.getContext('2d');
   const stage = document.getElementById('stage');
@@ -35,7 +35,7 @@
   let active = 0;
   let baseScale = 1, zoom = 1, panX = 0, panY = 0;
   let drag = null, isPanning = false, panStart = null, spaceDown = false, mouseOverCanvas = false;
-  let ownTarget = 0, sideSwapped = false, maskOpacity = 0.6;
+  let ownTarget = 0, sideSwapped = false, maskOpacity = 0.6, showCentre = true;
 
   function ts() { return baseScale * zoom; }
 
@@ -184,6 +184,15 @@
       ctx.save(); ctx.translate(c.cx, c.cy); ctx.rotate(frameAngle(c));
       ctx.lineWidth = (i === active ? 3 : 2) / ts(); ctx.strokeStyle = col; ctx.setLineDash([]);
       ctx.globalAlpha = i === active ? 1 : 0.75; ctx.strokeRect(-h, -h, c.s, c.s); ctx.globalAlpha = 1;
+      if (showCentre && i === active) {
+        const gap=4/ts();
+        ctx.strokeStyle='rgba(255,255,255,0.85)'; ctx.lineWidth=1.5/ts();
+        ctx.setLineDash([6/ts(),5/ts()]);
+        ctx.beginPath();
+        ctx.moveTo(-h,0); ctx.lineTo(-gap,0); ctx.moveTo(gap,0); ctx.lineTo(h,0);
+        ctx.moveTo(0,-h); ctx.lineTo(0,-gap); ctx.moveTo(0,gap); ctx.lineTo(0,h);
+        ctx.stroke(); ctx.setLineDash([]);
+      }
       if (i === active) {
         ctx.setLineDash([6 / ts(), 5 / ts()]); ctx.lineWidth = 1.5 / ts();
         ctx.strokeStyle = 'rgba(255,255,255,0.85)';
@@ -193,9 +202,9 @@
           ctx.fillStyle = '#fff'; ctx.fillRect(px-hs/2, py-hs/2, hs, hs);
           ctx.lineWidth = 2/ts(); ctx.strokeStyle = col; ctx.strokeRect(px-hs/2, py-hs/2, hs, hs);
         });
-        const ky = -h + KNOB_INSET / ts();
+        const ky = -h - KNOB_OUTSET / ts();
         ctx.lineWidth = 2/ts(); ctx.strokeStyle = col;
-        ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(0, ky - KNOB/ts()); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(0, -h); ctx.lineTo(0, ky + KNOB/ts()); ctx.stroke();
         ctx.beginPath(); ctx.arc(0, ky, KNOB/ts(), 0, Math.PI*2);
         ctx.fillStyle = '#fff'; ctx.fill(); ctx.stroke();
       }
@@ -245,7 +254,7 @@
     return -1;
   }
   function inside(i,p) { const c=crops[i],l=toLocal(c,p); return Math.abs(l.x)<=c.s/2&&Math.abs(l.y)<=c.s/2; }
-  function hitKnob(i,p) { const c=crops[i],[kx,ky]=toWorld(c,0,-c.s/2+KNOB_INSET/ts()); return Math.hypot(p.x-kx,p.y-ky)<=(KNOB+6)/ts(); }
+  function hitKnob(i,p) { const c=crops[i],[kx,ky]=toWorld(c,0,-c.s/2-KNOB_OUTSET/ts()); return Math.hypot(p.x-kx,p.y-ky)<=(KNOB+6)/ts(); }
   function hitTest(p) {
     const shown=shownIndices();
     if (shown.includes(active)) {
@@ -368,6 +377,7 @@
   linkRot.addEventListener('change', () => { if (linkRot.value!=='independent') setRotation(active,crops[active].rot); });
   linkSize.addEventListener('change', () => { if (linkSize.checked) { syncSize(active); draw(); } });
   maskOpacityEl.addEventListener('input', () => { maskOpacity=parseFloat(maskOpacityEl.value); draw(); });
+  document.getElementById('showCentre').addEventListener('change', e => { showCentre=e.target.checked; draw(); });
 
   function setActive(i, keepLayout) {
     const before=stageSource(); active=i;
