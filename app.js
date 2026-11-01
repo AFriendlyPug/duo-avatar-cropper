@@ -16,12 +16,17 @@
   const cards = [...document.querySelectorAll('.card[data-i]')];
   const tabs = [...document.querySelectorAll('.tabs button')];
 
-  let undoStack = null, redoStack = null;
+  const MAX_UNDO = 20;
+  let undoStack = [], redoStack = [];
 
   function snapshotCrops() {
     return crops.map(({cx,cy,s,base,rot,flip,flipV}) => ({cx,cy,s,base,rot,flip,flipV}));
   }
-  function saveUndo() { undoStack = snapshotCrops(); redoStack = null; }
+  function saveUndo() {
+    undoStack.push(snapshotCrops());
+    if (undoStack.length > MAX_UNDO) undoStack.shift();
+    redoStack = [];
+  }
   function applySnapshot(snap) {
     snap.forEach((s,i) => Object.assign(crops[i], s));
     updateRotUI(); updateButtons(); draw();
@@ -342,12 +347,12 @@
 
   window.addEventListener('keydown', e => {
     if ((e.ctrlKey||e.metaKey) && e.key==='z' && !e.shiftKey) {
-      if (!undoStack) return; e.preventDefault();
-      const cur=snapshotCrops(); applySnapshot(undoStack); redoStack=cur; undoStack=null;
+      if (!undoStack.length) return; e.preventDefault();
+      redoStack.push(snapshotCrops()); applySnapshot(undoStack.pop());
     }
     if ((e.ctrlKey||e.metaKey) && (e.key==='y' || (e.key==='z' && e.shiftKey))) {
-      if (!redoStack) return; e.preventDefault();
-      const cur=snapshotCrops(); applySnapshot(redoStack); undoStack=cur; redoStack=null;
+      if (!redoStack.length) return; e.preventDefault();
+      undoStack.push(snapshotCrops()); applySnapshot(redoStack.pop());
     }
   });
 
